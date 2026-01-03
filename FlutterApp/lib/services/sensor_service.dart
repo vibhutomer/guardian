@@ -29,10 +29,10 @@ class SensorService {
     try {
       // Replace with your actual API Key
       final apiKey = 'AIzaSyDJxrGI80KzZd2eOkuMqLcz_0C7m0BdElY';
-      //final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
+      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
 
       // 'gemini-pro' is the standard stable model that works everywhere
-      final model = GenerativeModel(model: 'gemini-pro', apiKey: apiKey);
+      // final model = GenerativeModel(model: 'gemini-pro', apiKey: apiKey);
 
       final prompt =
           '''
