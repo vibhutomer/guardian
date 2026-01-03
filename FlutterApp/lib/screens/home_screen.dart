@@ -84,6 +84,43 @@ class _HomeScreenState extends State<HomeScreen> {
               AppStrings.safeMode,
               style: TextStyle(color: Colors.grey),
             ),
+
+            const SizedBox(height: 30),
+
+            // TEMP: Test Button for Gemini
+            ElevatedButton.icon(
+              icon: const Icon(Icons.psychology), // AI Icon
+              label: const Text("TEST GEMINI AI"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+              ),
+              onPressed: () async {
+                // 1. Show a loading snackbar
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Asking Gemini..."))
+                );
+
+                // 2. Call the function with fake data (10.5 G-Force)
+                String result = await _sensorService.analyzeCrashWithGemini(10.5);
+
+                // 3. Show the result
+                showDialog(
+                  context: context, 
+                  builder: (ctx) => AlertDialog(
+                    title: const Text("Gemini Says:"),
+                    content: Text(result), // Should say something about "Severe Impact"
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx), 
+                        child: const Text("OK")
+                      )
+                    ],
+                  )
+                );
+              },
+            ),
+
           ],
         ),
       ),

@@ -28,10 +28,14 @@ class SensorService {
   Future<String> analyzeCrashWithGemini(double gForce) async {
     try {
       // Replace with your actual API Key
-      final apiKey = 'YOUR_GEMINI_API_KEY'; 
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
+      final apiKey = 'AIzaSyDJxrGI80KzZd2eOkuMqLcz_0C7m0BdElY';
+      //final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
 
-      final prompt = '''
+      // 'gemini-pro' is the standard stable model that works everywhere
+      final model = GenerativeModel(model: 'gemini-pro', apiKey: apiKey);
+
+      final prompt =
+          '''
       I detected a car crash with a G-Force impact of $gForce Gs. 
       Write a 1-sentence assessment for paramedics about the likely severity.
       ''';
@@ -40,7 +44,10 @@ class SensorService {
       final response = await model.generateContent(content);
       return response.text ?? "Analysis Unavailable";
     } catch (e) {
-      return "AI Analysis Failed: Check Internet";
+      print("Gemini Error: $e"); // Prints to Debug Console
+      // Return the REAL error message to the screen (cleaned up)
+      return "Error: ${e.toString().replaceAll('GenerativeAIException: ', '')}";
+      //return "AI Analysis Failed: Check Internet";
     }
   }
 
