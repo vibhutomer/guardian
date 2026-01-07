@@ -1,6 +1,5 @@
 import 'package:flutter/services.dart';
 import 'dart:async';
-import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class SensorService {
@@ -9,26 +8,38 @@ class SensorService {
   SensorService._internal();
 
   static const _platform = MethodChannel('com.guardian/sensor');
-  final _crashController = StreamController<bool>.broadcast();
-  Stream<bool> get crashStream => _crashController.stream;
+
+  // CHANGED: Now broadcasting a double (the specific G-Force value)
+  final _crashController = StreamController<double>.broadcast();
+  Stream<double> get crashStream => _crashController.stream;
 
   void initialize() {
     _platform.setMethodCallHandler(_handleNativeMethodCall);
+    print("✅ Sensor Service Initialized & Listening...");
   }
 
   Future<void> _handleNativeMethodCall(MethodCall call) async {
     if (call.method == 'crashDetected') {
-      _crashController.add(true);
+      try {
+        // SAFETY CHECK: Extract the number sent from Kotlin
+        // We cast to 'num' first to handle both int and double safely
+        final double gForce = (call.arguments as num).toDouble();
+        
+        print("🚨 CRASH SIGNAL RECEIVED FROM NATIVE: $gForce G");
+        _crashController.add(gForce);
+        
+      } catch (e) {
+        print("❌ Error parsing sensor data: $e");
+        // Fallback value if data is corrupted, so the app doesn't crash
+        _crashController.add(2.5); 
+      }
     }
   }
 
   // --- POLLINATIONS.AI (FREE, NO KEY, NO LIMITS) ---
   Future<String> analyzeCrashWithGemini(double gForce) async {
-    // We use Pollinations.ai which requires NO API KEY.
-    // It is perfect for Hackathons.
-
     try {
-      print("Contacting Pollinations AI (Free)...");
+      print("Contacting Pollinations AI...");
 
       final prompt = "You are an automated emergency dispatcher. "
           "A car crash happened with $gForce G-force. "
@@ -36,14 +47,10 @@ class SensorService {
           "If G-force is under 4.0, respond exactly: 'WARNING: Alerting emergency contacts and logging location.' "
           "Do not write anything else.";
 
-      // Pollinations uses a simple GET request with the prompt in the URL.
-      // We encode the prompt to make it URL-safe.
       final url = Uri.parse('https://text.pollinations.ai/${Uri.encodeComponent(prompt)}');
-
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        // Pollinations returns raw text, no complex JSON!
         final text = response.body;
         return text.isNotEmpty ? text : "Analysis Empty";
       } else {
