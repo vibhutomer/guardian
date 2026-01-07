@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:geolocator/geolocator.dart';
 
 class DatabaseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // CHANGED: Returns Future<String?> so we know the ID of the report
   Future<String?> saveAccidentReport({
     required double gForce,
     required String aiAnalysis,
@@ -13,14 +13,16 @@ class DatabaseService {
   }) async {
     final user = _auth.currentUser;
 
-    // It's okay to save anonymous reports if user is null, but for now we return null
     if (user == null) {
       print("Error: No user logged in.");
       return null;
     }
 
     try {
-      final docRef = _db.collection('accidents').doc(); // Generate ID
+      // 1. GET REAL HIGH-ACCURACY LOCATION
+      Map<String, double> locationData = await _getCurrentLocation();
+
+      final docRef = _db.collection('accidents').doc();
 
       final crashData = {
         "accident_id": docRef.id,
@@ -32,13 +34,13 @@ class DatabaseService {
         "ai_analysis": aiAnalysis,
         "status": status,
         "is_false_alarm": false,
-        "location": {"lat": 28.5, "lng": 77.2}, // Still mock, we can fix this later
+        "location": locationData, 
       };
 
       await docRef.set(crashData);
-      print("✅ CRASH REPORT SAVED: ${docRef.id}");
+      print("✅ Report Saved with Location: ${locationData.toString()}");
       
-      return docRef.id; // Return the ID to the UI
+      return docRef.id; 
       
     } catch (e) {
       print("❌ Failed to save report: $e");
@@ -52,9 +54,41 @@ class DatabaseService {
         "status": "SAFE",
         "is_false_alarm": true,
       });
-      print("✅ Status updated to SAFE for ID: $accidentId");
     } catch (e) {
-      print("❌ Failed to update status: $e");
+      print("Failed to update status: $e");
     }
+  }
+
+  // --- UPDATED LOCATION HELPER ---
+  Future<Map<String, double>> _getCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return {"lat": 0.0, "lng": 0.0};
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return {"lat": 0.0, "lng": 0.0};
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return {"lat": 0.0, "lng": 0.0};
+    }
+
+    // CHANGED: Force High Accuracy to avoid cached/default emulator locations
+    Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.bestForNavigation, 
+    );
+
+    return {
+      "lat": position.latitude,
+      "lng": position.longitude
+    };
   }
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:permission_handler/permission_handler.dart'; // Import this
 import '../services/sensor_service.dart';
 import '../services/auth_service.dart';
 import 'emergency_screen.dart';
+import 'contacts_screen.dart';
 import '../utils/constants.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -20,12 +22,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // 1. Ask for ALL Permissions immediately
+    _requestPermissions();
+
+    // 2. Start Sensors
     _sensorService.initialize();
     
-    // CHANGED: Listen for 'gForce' (double), not 'event' (bool)
+    // 3. Listen for crashes
     _sensorService.crashStream.listen((gForce) {
       if (mounted) {
-        // We go to EmergencyScreen and PASS the real gForce value!
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -34,6 +40,24 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     });
+  }
+
+  // --- NEW PERMISSION LOGIC ---
+  Future<void> _requestPermissions() async {
+    // Request Location, SMS, and Notification permissions simultaneously
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.location,
+      Permission.sms,
+      Permission.notification,
+    ].request();
+
+    // Optional: Log results to see if they were granted
+    if (statuses[Permission.location]!.isDenied) {
+      print("Location permission is required for accurate reporting.");
+    }
+    if (statuses[Permission.sms]!.isDenied) {
+      print("SMS permission is required to text emergency contacts.");
+    }
   }
 
   @override
@@ -54,7 +78,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // User Greeting
             if (user?.photoURL != null)
               CircleAvatar(
                 backgroundImage: NetworkImage(user!.photoURL!),
@@ -67,7 +90,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 40),
             
-            // The Big Green Shield
             const Icon(
               Icons.shield_outlined, 
               size: 150, 
@@ -88,15 +110,26 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(color: Colors.grey),
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 40),
 
-            // TEST BUTTON (Keep this for now to verify DB connection)
-             ElevatedButton(
-              onPressed: () async {
-                print("Attempting to talk to Firebase...");
-                // Note: You can remove this button later once sensors are verified
+            // Manage Contacts Button
+            ElevatedButton.icon(
+              icon: const Icon(Icons.contact_phone),
+              label: const Text("MANAGE CONTACTS"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context, 
+                  MaterialPageRoute(builder: (context) => const ContactsScreen())
+                );
               },
-              child: const Text("GUARDIAN ACTIVE"),
             ),
           ],
         ),

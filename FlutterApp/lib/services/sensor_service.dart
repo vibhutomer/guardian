@@ -36,6 +36,24 @@ class SensorService {
     }
   }
 
+  // Call Kotlin to play sound
+  Future<void> startAlarm() async {
+    try {
+      await _platform.invokeMethod('startAlarm');
+    } catch (e) {
+      print("Failed to start alarm: $e");
+    }
+  }
+
+  // Call Kotlin to stop sound
+  Future<void> stopAlarm() async {
+    try {
+      await _platform.invokeMethod('stopAlarm');
+    } catch (e) {
+      print("Failed to stop alarm: $e");
+    }
+  }
+
   // --- POLLINATIONS.AI (FREE, NO KEY, NO LIMITS) ---
   Future<String> analyzeCrashWithGemini(double gForce) async {
     try {
