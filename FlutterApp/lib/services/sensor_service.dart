@@ -1,20 +1,18 @@
 import 'package:flutter/services.dart';
 import 'dart:async';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class SensorService {
   static final SensorService _instance = SensorService._internal();
   factory SensorService() => _instance;
   SensorService._internal();
 
-  // Channel must match the one in MainActivity.kt
   static const _platform = MethodChannel('com.guardian/sensor');
-
   final _crashController = StreamController<bool>.broadcast();
   Stream<bool> get crashStream => _crashController.stream;
 
   void initialize() {
-    // Listen for calls from Kotlin
     _platform.setMethodCallHandler(_handleNativeMethodCall);
   }
 
@@ -24,30 +22,37 @@ class SensorService {
     }
   }
 
-  // AI Crash Analysis (Jaskaran's Part)
+  // --- POLLINATIONS.AI (FREE, NO KEY, NO LIMITS) ---
   Future<String> analyzeCrashWithGemini(double gForce) async {
+    // We use Pollinations.ai which requires NO API KEY.
+    // It is perfect for Hackathons.
+
     try {
-      // Replace with your actual API Key
-      final apiKey = 'AIzaSyDJxrGI80KzZd2eOkuMqLcz_0C7m0BdElY';
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
+      print("Contacting Pollinations AI (Free)...");
 
-      // 'gemini-pro' is the standard stable model that works everywhere
-      // final model = GenerativeModel(model: 'gemini-pro', apiKey: apiKey);
+      final prompt = "You are an automated emergency dispatcher. "
+          "A car crash happened with $gForce G-force. "
+          "If G-force is over 4.0, respond exactly: 'CRITICAL: Calling nearest hospital and dispatching ambulance.' "
+          "If G-force is under 4.0, respond exactly: 'WARNING: Alerting emergency contacts and logging location.' "
+          "Do not write anything else.";
 
-      final prompt =
-          '''
-      I detected a car crash with a G-Force impact of $gForce Gs. 
-      Write a 1-sentence assessment for paramedics about the likely severity.
-      ''';
+      // Pollinations uses a simple GET request with the prompt in the URL.
+      // We encode the prompt to make it URL-safe.
+      final url = Uri.parse('https://text.pollinations.ai/${Uri.encodeComponent(prompt)}');
 
-      final content = [Content.text(prompt)];
-      final response = await model.generateContent(content);
-      return response.text ?? "Analysis Unavailable";
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        // Pollinations returns raw text, no complex JSON!
+        final text = response.body;
+        return text.isNotEmpty ? text : "Analysis Empty";
+      } else {
+        print("Pollinations Error: ${response.statusCode}");
+        return "Error: Server Busy";
+      }
     } catch (e) {
-      print("Gemini Error: $e"); // Prints to Debug Console
-      // Return the REAL error message to the screen (cleaned up)
-      return "Error: ${e.toString().replaceAll('GenerativeAIException: ', '')}";
-      //return "AI Analysis Failed: Check Internet";
+      print("Network Error: $e");
+      return "Connection Failed";
     }
   }
 
