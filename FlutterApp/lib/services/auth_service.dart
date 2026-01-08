@@ -14,14 +14,17 @@ class AuthService {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return null;
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
 
       final OAuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      final UserCredential userCredential = await _auth.signInWithCredential(
+        credential,
+      );
       return userCredential.user;
     } catch (e) {
       print("Error signing in with Google: $e");
@@ -29,9 +32,16 @@ class AuthService {
     }
   }
 
-  // Sign Out
+  // FIX: Complete Sign Out
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
-    await _auth.signOut();
+    try {
+      await _googleSignIn.disconnect(); // Clears the cached account
+      await _googleSignIn.signOut(); // Necessary for Google Login
+      await _auth.signOut();
+    } catch (e) {
+      print("Error signing out: $e");
+      // Even if it fails, try to sign out locally
+      await _auth.signOut();
+    }
   }
 }

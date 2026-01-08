@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:guardian/screens/role_selection_screen.dart';
 import 'package:permission_handler/permission_handler.dart'; // Import this
 import '../services/sensor_service.dart';
 import '../services/auth_service.dart';
 import 'emergency_screen.dart';
 import 'contacts_screen.dart';
 import '../utils/constants.dart';
+// import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,13 +24,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    
+
     // 1. Ask for ALL Permissions immediately
     _requestPermissions();
 
     // 2. Start Sensors
     _sensorService.initialize();
-    
+
     // 3. Listen for crashes
     _sensorService.crashStream.listen((gForce) {
       if (mounted) {
@@ -65,13 +67,28 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () => _authService.signOut(),
-          )
+            onPressed: () async {
+              // 1. Perform the sign out
+              await _authService.signOut();
+
+              // 2. FORCE Navigation to Login Screen (Clears the "stuck" screens)
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (context) => const RoleSelectionScreen(),
+                  ), // Import LoginScreen!
+                  (Route<dynamic> route) =>
+                      false, // This removes all previous routes
+                );
+              }
+            },
+          ),
         ],
       ),
       body: Center(
@@ -89,19 +106,19 @@ class _HomeScreenState extends State<HomeScreen> {
               style: const TextStyle(color: Colors.white, fontSize: 20),
             ),
             const SizedBox(height: 40),
-            
+
             const Icon(
-              Icons.shield_outlined, 
-              size: 150, 
-              color: AppColors.primaryGreen
+              Icons.shield_outlined,
+              size: 150,
+              color: AppColors.primaryGreen,
             ),
             const SizedBox(height: 30),
             const Text(
               AppStrings.monitoring,
               style: TextStyle(
-                fontSize: 26, 
+                fontSize: 26,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textWhite
+                color: AppColors.textWhite,
               ),
             ),
             const SizedBox(height: 10),
@@ -119,15 +136,20 @@ class _HomeScreenState extends State<HomeScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 30,
+                  vertical: 15,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),
               ),
               onPressed: () {
                 Navigator.push(
-                  context, 
-                  MaterialPageRoute(builder: (context) => const ContactsScreen())
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ContactsScreen(),
+                  ),
                 );
               },
             ),
