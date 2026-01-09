@@ -185,3 +185,102 @@ class MainActivity: FlutterActivity(), SensorEventListener {
         sensorManager.unregisterListener(this)
     }
 }
+//package com.example.guardian
+////
+////import android.content.Context
+////import android.hardware.Sensor
+////import android.hardware.SensorEvent
+////import android.hardware.SensorEventListener
+////import android.hardware.SensorManager
+////import android.media.MediaPlayer
+////import android.media.RingtoneManager
+////import android.os.Bundle
+////import io.flutter.embedding.android.FlutterActivity
+////import io.flutter.embedding.engine.FlutterEngine
+////import io.flutter.plugin.common.MethodChannel
+////import kotlin.math.sqrt
+////
+////class MainActivity : FlutterActivity(), SensorEventListener {
+////    private val CHANNEL = "com.guardian/sensor"
+////    private lateinit var sensorManager: SensorManager
+////    private var accelerometer: Sensor? = null
+////    private var methodChannel: MethodChannel? = null
+////    private var mediaPlayer: MediaPlayer? = null
+////
+////    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+////        super.configureFlutterEngine(flutterEngine)
+////
+////        methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+////        methodChannel!!.setMethodCallHandler { call, result ->
+////            when (call.method) {
+////                "startAlarm" -> {
+////                    startAlarm()
+////                    result.success(null)
+////                }
+////                "stopAlarm" -> {
+////                    stopAlarm()
+////                    result.success(null)
+////                }
+////                else -> result.notImplemented()
+////            }
+////        }
+////
+////        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+////        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+////    }
+////
+////    private fun startAlarm() {
+////        if (mediaPlayer == null) {
+////            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+////                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+////
+////            mediaPlayer = MediaPlayer.create(this, alarmUri)
+////            mediaPlayer?.isLooping = true
+////            mediaPlayer?.start()
+////        }
+////    }
+////
+////    private fun stopAlarm() {
+////        mediaPlayer?.stop()
+////        mediaPlayer?.release()
+////        mediaPlayer = null
+////    }
+////
+////    override fun onResume() {
+////        super.onResume()
+////        accelerometer?.also { sensor ->
+////            sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI)
+////        }
+////    }
+////
+////    override fun onPause() {
+////        super.onPause()
+////        sensorManager.unregisterListener(this)
+////        stopAlarm() // Stop audio if app closes
+////    }
+////
+////    override fun onSensorChanged(event: SensorEvent?) {
+////        if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
+////            val x = event.values[0]
+////            val y = event.values[1]
+////            val z = event.values[2]
+////
+////            // CALCULATE G-FORCE
+////            // 1. Get total force in m/s^2
+////            val totalForceMps = sqrt((x * x + y * y + z * z).toDouble())
+////
+////            // 2. Convert to G-Force (Divide by 9.81)
+////            val gForce = totalForceMps / 9.81
+////
+////            // 3. Send to Flutter ONLY if it's a significant event (e.g. > 2.5G)
+////            // This reduces lag by not sending every single slight movement
+////            if (gForce > 2.5) {
+////                methodChannel?.invokeMethod("crashDetected", gForce)
+////            }
+////        }
+////    }
+////
+////    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+////        // Not needed
+////    }
+////}
