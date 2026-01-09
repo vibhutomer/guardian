@@ -1,14 +1,15 @@
 # 🛡️ Guardian: AI-Powered Accident Detection & Emergency Response System
 
 > **"Seconds Save Lives."**
-> 
+>
 > Guardian is a Flutter-based intelligent safety application designed to detect vehicular crashes in real-time, analyze severity with AI, and bridge the gap between victims, emergency contacts, and hospitals.
 
 ---
 
 ## 🌟 Key Features
 
-* **⚡ Smart Crash & Rollover Detection:** * Uses native Android sensors (Accelerometer & Gyroscope) to detect impacts.
+* **⚡ Smart Crash & Rollover Detection:**
+    * Uses native Android sensors (Accelerometer & Gyroscope) to detect impacts.
     * **Advanced Filtering:** Distinguishes between **Car Crashes**, **Bike Rollovers** (>4 rad/s rotation), and accidental **Phone Drops** (freefall detection) to prevent false alarms.
 * **🎙️ Audio Evidence "Black Box":** Automatically records ambient audio for 10 seconds during the alert countdown. This audio is uploaded to the cloud to help responders verify the severity of the crash.
 * **🧠 Gemini AI Analysis:** Uses Generative AI (via Pollinations) to process sensor data and categorize the incident as "CRITICAL" (Ambulance needed) or "WARNING".
@@ -20,10 +21,23 @@
 
 ## 📸 Screenshots
 
-| **Emergency Alert** | **Hospital Dashboard** | **Home Screen** |
-|:---:|:---:|:---:|
-| ![Emergency Screen](screenshots/emergency_screen.png) | ![Hospital Dashboard](screenshots/hospital_dashboard.png) | ![Home Screen](screenshots/home_screen.png) |
-| *Real-time Countdown & SOS* | *Incoming Alerts & Map View* | *Protection Status & Contacts* |
+### 1️⃣ Getting Started & Setup
+| **Select Role** | **Login Screen** | **Emergency Contacts** | **Home Monitoring** |
+|:---:|:---:|:---:|:---:|
+| ![Select Role](FlutterApp/Screenshots/select_role.jpeg) | ![Login Screen](FlutterApp/Screenshots/login_screen.jpeg) | ![Emergency Contacts](FlutterApp/Screenshots/emergency_contacts.jpeg) | ![Home Screen](FlutterApp/Screenshots/homescreen.jpeg) |
+| *Choose User or Hospital* | *Secure Sign-In* | *Manage Trusted Contacts* | *Active Protection Mode* |
+
+### 2️⃣ The Accident Workflow (User Side)
+| **Crash Detected** | **AI Analysis** | **SOS Sent** | **Connecting Hospital** |
+|:---:|:---:|:---:|:---:|
+| ![Crash Detected](FlutterApp/Screenshots/crash_detected.jpeg) | ![Analysing Environment](FlutterApp/Screenshots/analysing_environment.jpeg) | ![SOS Sent](FlutterApp/Screenshots/sos_sent.jpeg) | ![Connecting Hospital](FlutterApp/Screenshots/Connecting_hospital.jpeg) |
+| *Real-time Alert Countdown* | *Processing Sensor Data* | *Alerts Dispatched* | *Finding Nearby Help* |
+
+### 3️⃣ Hospital Response System
+| **Hospital Portal** | **Dashboard Feed** | **Incident Details** | **Location View** | **Case Accepted** |
+|:---:|:---:|:---:|:---:|:---:|
+| ![Hospital Portal](FlutterApp/Screenshots/hospital_screen.jpeg) | ![Hospital Dashboard](FlutterApp/Screenshots/hospital_dashboard.jpeg) | ![Alert Details](FlutterApp/Screenshots/alert.jpeg) | ![Alert Message](FlutterApp/Screenshots/alert_message.jpeg) | ![Case Accepted](FlutterApp/Screenshots/case_accepted.jpeg) |
+| *Admin Login* | *Incoming Feed* | *Severity Data* | *Map Location* | *Dispatch Confirmed* |
 
 
 ---
