@@ -10,6 +10,7 @@ import '../services/sensor_service.dart';
 import '../services/database_service.dart';
 import '../services/audio_verification_service.dart';
 import '../services/google_places_service.dart';
+import '../services/ai_model_service.dart';
 
 class EmergencyScreen extends StatefulWidget {
   final double gForce;
@@ -61,13 +62,203 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
   }
 
   // --- SEND ALERT LOGIC ---
-  Future<void> _sendAlert() async {
-    // 1. Stop the Noise
-    _sensorService.stopAlarm();
+  // Future<void> _sendAlert() async {
+  //   // 1. Stop the Noise
+  //   _sensorService.stopAlarm();
 
-    // 2. Stop Recording & Get File Path
+  //   // 2. Stop Recording & Get File Path
+  //   String? localAudioPath = await _audioService.stopRecording();
+  //   print("🎤 Audio recorded at: $localAudioPath"); // Debug print
+
+  //   double lat = 0.0, lng = 0.0;
+  //   try {
+  //     Position position = await Geolocator.getCurrentPosition(
+  //       desiredAccuracy: LocationAccuracy.high,
+  //     );
+  //     lat = position.latitude;
+  //     lng = position.longitude;
+  //   } catch (e) {
+  //     print("GPS Error: $e");
+  //   }
+
+  //   // 2. FIND NEARBY HOSPITALS (The Magic Step 🌟)
+  //   List<Map<String, dynamic>> hospitals = [];
+  //   if (lat != 0.0) {
+  //     hospitals = await _placesService.findNearbyHospitals(lat, lng);
+  //     // Optional: Send SMS to user contacts saying "Alerting X, Y, Z hospitals..."
+  //   }
+
+  //   // 3. Send SMS to Contacts
+  //   _sendSMS();
+
+  //   // 4. BLAST SOS TO HOSPITALS (DEMO MODE 🚧)
+  //   for (var hospital in hospitals) {
+  //     //String realHospitalPhone = hospital['phone'];
+  //     String hospitalName = hospital['name'];
+
+  //     // ⚠️ HACKATHON SAFETY: Send to YOUR demo phone
+  //     String demoSafeNumber = "+919258346766";
+
+  //     // We simulate the check: "If the hospital HAS a phone number, we alert them"
+  //     // if (realHospitalPhone.isNotEmpty) {
+  //     if (hospitals.isNotEmpty) {
+  //       // FIX: Create a REAL Google Maps Link using the lat/lng variables
+  //       String mapsLink =
+  //           "https://www.google.com/maps/search/?api=1&query=$lat,$lng";
+
+  //       String hospitalMsg =
+  //           "🚨 DEMO ALERT: Crash detected near $hospitalName. "
+  //           "Severity: ${widget.gForce.toStringAsFixed(1)}G. "
+  //           "Location: $mapsLink"; // <--- Clickable Link!
+
+  //       print(
+  //         "📲 DEMO MODE: Redirecting SMS for $hospitalName to $demoSafeNumber",
+  //       );
+
+  //       try {
+  //         // Send to YOUR phone
+  //         await _smsSender.sendSms(
+  //           phoneNumber: demoSafeNumber,
+  //           message: hospitalMsg,
+  //           simSlot: 0,
+  //         );
+  //       } catch (e) {
+  //         print("Slot 0 failed, trying Slot 1...");
+  //         try {
+  //           // Retry with Slot 1
+  //           await _smsSender.sendSms(
+  //             phoneNumber: demoSafeNumber,
+  //             message: hospitalMsg,
+  //             simSlot: 1,
+  //           );
+  //         } catch (e2) {
+  //           print("❌ Both SIM slots failed: $e2");
+  //         }
+  //       }
+  //     }
+  //   }
+
+  //   setState(() => _alertSent = true);
+
+  //   // 4. Get AI Text Report
+  //   String analysis = "Analyzing...";
+
+  //   final AIModelService aiService = AIModelService();
+  //   await aiService.loadModel();
+
+  //   // Add audio note if recorded
+  //   if (localAudioPath != null) {
+  //     // FIX: Use SensorService to verify (it handles AIModelService internally now)
+  //     analysis = await _sensorService.verifyIncident(
+  //       gForce: widget.gForce,
+  //       audioFilePath: localAudioPath,
+  //     );
+  //   } else {
+  //     analysis =
+  //         "Audio failed. G-Force: ${widget.gForce}G. Please verify status.";
+  //   }
+
+  //   if (hospitals.isNotEmpty) {
+  //     analysis += "\n\n🏥 CONTACTED HOSPITALS:\n";
+  //     for (var h in hospitals) {
+  //       String p = h['phone'].isEmpty ? "(No Phone)" : h['phone'];
+  //       analysis += "• ${h['name']} - $p\n";
+  //     }
+  //   }
+
+  //   // 5. Save Everything to Database
+  //   // Note: We pass 'audioPath', so the DB service converts it to Base64 text.
+  //   String? reportId = await _dbService.saveAccidentReport(
+  //     gForce: widget.gForce,
+  //     aiAnalysis: analysis,
+  //     status: "CRITICAL",
+  //     audioPath: localAudioPath,
+  //     nearbyHospitals: hospitals,
+  //   );
+
+  //   if (mounted) {
+  //     setState(() {
+  //       _aiAnalysis = analysis;
+  //       _accidentDocId = reportId; // Important: We listen to this ID below
+  //     });
+  //   }
+  // }
+
+  // --- SEND ALERT LOGIC (GATEKEEPER PATTERN) ---
+  Future<void> _sendAlert() async {
+    // 1. STOP EVERYTHING FIRST
+    _sensorService.stopAlarm();
     String? localAudioPath = await _audioService.stopRecording();
-    print("🎤 Audio recorded at: $localAudioPath"); // Debug print
+    print("🎤 Audio recorded at: $localAudioPath");
+    
+    // Show user we are thinking...
+    setState(() {
+      _aiAnalysis = "Verifying Incident with AI...";
+    });
+
+    // -----------------------------------------------------------
+    // 2. GATEKEEPER: ASK AI BEFORE SENDING ANYTHING
+    // -----------------------------------------------------------
+    String analysisResult = "Analysis Failed";
+    
+    // If we have audio, ask the AI
+    if (localAudioPath != null) {
+      analysisResult = await _sensorService.verifyIncident(
+        gForce: widget.gForce,
+        audioFilePath: localAudioPath,
+      );
+    } else {
+      // If mic failed, we cannot be sure, so we assume CRITICAL to be safe
+      analysisResult = "WARNING: Audio hardware failed. Proceeding with alert.";
+    }
+
+    // UPDATE UI WITH VERDICT
+    setState(() {
+      _aiAnalysis = analysisResult;
+    });
+
+    // -----------------------------------------------------------
+    // 3. DECISION TIME
+    // -----------------------------------------------------------
+    
+    // CHECK: Did the AI explicitly say "FALSE ALARM"?
+    // We use toUpperCase() to make sure case differences don't break it.
+    if (analysisResult.toUpperCase().contains("FALSE ALARM")) {
+      
+      print("🛑 AI BLOCKED THE ALERT: False Alarm Detected.");
+      
+      // A. Save "False Alarm" to Database for logs
+      await _dbService.saveAccidentReport(
+        gForce: widget.gForce,
+        aiAnalysis: analysisResult,
+        status: "SAFE", // Mark as Safe/False Alarm
+        audioPath: localAudioPath,
+        nearbyHospitals: [], // No hospitals needed
+      );
+
+      // B. Auto-Exit or Show Safe State
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(
+             content: Text("AI detected a False Alarm. Alert Cancelled."),
+             backgroundColor: Colors.green,
+             duration: Duration(seconds: 4),
+           ),
+        );
+        // Optional: Go back to home automatically after 2 seconds
+        Future.delayed(const Duration(seconds: 2), () {
+           if (mounted) cancelEmergency(); 
+        });
+      }
+      
+      // 🛑 CRITICAL RETURN: THIS STOPS THE SMS FROM SENDING
+      return; 
+    }
+
+    // -----------------------------------------------------------
+    // 4. IF WE ARE HERE -> IT IS REAL! PROCEED TO ALERT
+    // -----------------------------------------------------------
+    print("🚨 AI VERIFIED CRITICAL/WARNING. SENDING ALERTS NOW.");
 
     double lat = 0.0, lng = 0.0;
     try {
@@ -80,88 +271,56 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
       print("GPS Error: $e");
     }
 
-    // 2. FIND NEARBY HOSPITALS (The Magic Step 🌟)
+    // 5. FIND HOSPITALS
     List<Map<String, dynamic>> hospitals = [];
     if (lat != 0.0) {
       hospitals = await _placesService.findNearbyHospitals(lat, lng);
-      // Optional: Send SMS to user contacts saying "Alerting X, Y, Z hospitals..."
     }
 
-    // 3. Send SMS to Contacts
-    _sendSMS();
+    // 6. SEND SMS TO CONTACTS
+    await _sendSMS();
 
-    // 4. BLAST SOS TO HOSPITALS (DEMO MODE 🚧)
+    // 7. ALERT HOSPITALS (DEMO)
     for (var hospital in hospitals) {
-      String realHospitalPhone = hospital['phone'];
       String hospitalName = hospital['name'];
+      String demoSafeNumber = "+919258346766"; 
 
-      // ⚠️ HACKATHON SAFETY: Send to YOUR demo phone
-      String demoSafeNumber = "+919258346766";
-
-      // We simulate the check: "If the hospital HAS a phone number, we alert them"
-      // if (realHospitalPhone.isNotEmpty) {
       if (hospitals.isNotEmpty) {
-        // FIX: Create a REAL Google Maps Link using the lat/lng variables
-        String mapsLink =
-            "https://www.google.com/maps/search/?api=1&query=$lat,$lng";
-
+        String mapsLink = "https://www.google.com/maps/search/?api=1&query=$lat,$lng";
         String hospitalMsg =
             "🚨 DEMO ALERT: Crash detected near $hospitalName. "
             "Severity: ${widget.gForce.toStringAsFixed(1)}G. "
-            "Location: $mapsLink"; // <--- Clickable Link!
-
-        print(
-          "📲 DEMO MODE: Redirecting SMS for $hospitalName to $demoSafeNumber",
-        );
+            "Location: $mapsLink";
 
         try {
-          // Send to YOUR phone
           await _smsSender.sendSms(
             phoneNumber: demoSafeNumber,
             message: hospitalMsg,
             simSlot: 0,
           );
         } catch (e) {
-          print("Slot 0 failed, trying Slot 1...");
-          try {
-            // Retry with Slot 1
-            await _smsSender.sendSms(
-              phoneNumber: demoSafeNumber,
-              message: hospitalMsg,
-              simSlot: 1,
-            );
-          } catch (e2) {
-            print("❌ Both SIM slots failed: $e2");
-          }
+             // Try slot 1...
         }
       }
     }
 
+    // Update UI to show SENT state
     setState(() => _alertSent = true);
 
-    // 4. Get AI Text Report
-    String analysis = await _sensorService.analyzeCrashWithGemini(
-      widget.gForce,
-    );
-
-    // Add audio note if recorded
-    if (localAudioPath != null) {
-      analysis += "\n[AUDIO EVIDENCE]: Crash audio recorded and saved.";
-    }
-
+    // 8. FINAL DB SAVE (CRITICAL STATUS)
+    // Append hospital info to the AI analysis text for the DB record
+    String finalLog = analysisResult;
     if (hospitals.isNotEmpty) {
-      analysis += "\n\n🏥 CONTACTED HOSPITALS:\n";
+      finalLog += "\n\n🏥 CONTACTED HOSPITALS:\n";
       for (var h in hospitals) {
         String p = h['phone'].isEmpty ? "(No Phone)" : h['phone'];
-        analysis += "• ${h['name']} - $p\n";
+        finalLog += "• ${h['name']} - $p\n";
       }
     }
 
-    // 5. Save Everything to Database
-    // Note: We pass 'audioPath', so the DB service converts it to Base64 text.
     String? reportId = await _dbService.saveAccidentReport(
       gForce: widget.gForce,
-      aiAnalysis: analysis,
+      aiAnalysis: finalLog,
       status: "CRITICAL",
       audioPath: localAudioPath,
       nearbyHospitals: hospitals,
@@ -169,8 +328,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
 
     if (mounted) {
       setState(() {
-        _aiAnalysis = analysis;
-        _accidentDocId = reportId; // Important: We listen to this ID below
+        _accidentDocId = reportId;
       });
     }
   }

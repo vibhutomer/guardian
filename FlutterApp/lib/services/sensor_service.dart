@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'ai_model_service.dart'; // CONNECTING BOTH FILES
 
 class SensorService {
   static final SensorService _instance = SensorService._internal();
@@ -9,9 +10,10 @@ class SensorService {
 
   static const _platform = MethodChannel('com.guardian/sensor');
 
-  // CHANGED: Now broadcasting a double (the specific G-Force value)
   final _crashController = StreamController<double>.broadcast();
   Stream<double> get crashStream => _crashController.stream;
+
+  final AIModelService _aiModelService = AIModelService();
 
   void initialize() {
     _platform.setMethodCallHandler(_handleNativeMethodCall);
@@ -21,22 +23,17 @@ class SensorService {
   Future<void> _handleNativeMethodCall(MethodCall call) async {
     if (call.method == 'crashDetected') {
       try {
-        // SAFETY CHECK: Extract the number sent from Kotlin
-        // We cast to 'num' first to handle both int and double safely
         final double gForce = (call.arguments as num).toDouble();
-        
-        print("🚨 CRASH SIGNAL RECEIVED FROM NATIVE: $gForce G");
+        print("🚨 CRASH SIGNAL RECEIVED: $gForce G");
         _crashController.add(gForce);
-        
       } catch (e) {
         print("❌ Error parsing sensor data: $e");
-        // Fallback value if data is corrupted, so the app doesn't crash
-        _crashController.add(2.5); 
+        _crashController.add(2.5); // Safe fallback
       }
     }
   }
 
-  // Call Kotlin to play sound
+  // --- NATIVE ALARMS ---
   Future<void> startAlarm() async {
     try {
       await _platform.invokeMethod('startAlarm');
@@ -45,7 +42,6 @@ class SensorService {
     }
   }
 
-  // Call Kotlin to stop sound
   Future<void> stopAlarm() async {
     try {
       await _platform.invokeMethod('stopAlarm');
@@ -54,30 +50,59 @@ class SensorService {
     }
   }
 
-  // --- POLLINATIONS.AI (FREE, NO KEY, NO LIMITS) ---
-  Future<String> analyzeCrashWithGemini(double gForce) async {
+  // --- CENTRAL INTELLIGENCE (Pollinations + AI Model) ---
+  
+  // Call this method when you have the recorded audio file ready
+  Future<String> verifyIncident({
+    required double gForce, 
+    required String audioFilePath
+  }) async {
     try {
-      print("Contacting Pollinations AI...");
+      print("🕵️ Analyzing Incident Data...");
 
-      final prompt = "You are an automated emergency dispatcher. "
-          "A car crash happened with $gForce G-force. "
-          "If G-force is over 4.0, respond exactly: 'CRITICAL: Calling nearest hospital and dispatching ambulance.' "
-          "If G-force is under 4.0, respond exactly: 'WARNING: Alerting emergency contacts and logging location.' "
-          "Do not write anything else.";
+      // 1. Get Audio Analysis from AIModelService
+      String detectedSounds = await _aiModelService.processAudio(audioFilePath);
+      print("Audio Analysis Result: $detectedSounds");
 
-      final url = Uri.parse('https://text.pollinations.ai/${Uri.encodeComponent(prompt)}');
+      // 2. Send both G-Force and Sounds to Pollinations
+      return await _askPollinations(gForce, detectedSounds);
+
+    } catch (e) {
+      print("Incident Verification Failed: $e");
+      return "Error: Could not verify incident.";
+    }
+  }
+
+  Future<String> _askPollinations(double gForce, String sounds) async {
+    try {
+      print("☁️ Contacting Pollinations AI...");
+
+      // Combined Logic Prompt
+      String prompt =
+          "You are an AI Accident Investigator. Analyze this car sensor data:\n"
+          "G-Force Impact: $gForce G.\n"
+          "Audio Analysis Detected: [$sounds].\n\n"
+          "Rules:\n"
+          "1. If sounds include 'Glass', 'Crash', 'Screaming', 'Thud', 'Bang' AND G-Force > 4.0 -> RETURN 'CRITICAL ALERT: High probability of accident.'\n"
+          "2. If sounds are only 'Speech', 'Music', 'Silence' AND G-Force < 3.0 -> RETURN 'FALSE ALARM: Situation appears normal.'\n"
+          "3. Otherwise -> RETURN 'WARNING: Unusual events detected.'\n"
+          "Provide a short 1-sentence reason.";
+
+      // Encode URL properly
+      final url = Uri.parse(
+        'https://text.pollinations.ai/${Uri.encodeComponent(prompt)}',
+      );
+      
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        final text = response.body;
-        return text.isNotEmpty ? text : "Analysis Empty";
+        return response.body;
       } else {
-        print("Pollinations Error: ${response.statusCode}");
-        return "Error: Server Busy";
+        return "AI Service Unavailable (Status: ${response.statusCode})";
       }
     } catch (e) {
-      print("Network Error: $e");
-      return "Connection Failed";
+      print("Pollinations Network Error: $e");
+      return "Network Error: Check Internet Connection";
     }
   }
 
