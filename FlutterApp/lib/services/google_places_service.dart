@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class GooglePlacesService {
   // ⚠️ REPLACE WITH YOUR REAL API KEY
-  final String apiKey = "API_KEY";
+  final String apiKey = "AIzaSyDZQwvMiDT1tzaw5-ze3ATJygoPb8Nprds";
 
   Future<List<Map<String, dynamic>>> findNearbyHospitals(
     double lat,

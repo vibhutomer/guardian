@@ -1,13 +1,19 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:audioplayers/audioplayers.dart'; 
-import 'package:url_launcher/url_launcher.dart'; 
-// import '../utils/constants.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../utils/constants.dart';
 
 class HospitalDashboard extends StatefulWidget {
-  final String hospitalName; // E.g., "Apollo (Sector 62)"
-  const HospitalDashboard({super.key, required this.hospitalName});
+  final String hospitalName;
+  final String hospitalAddress;
+
+  const HospitalDashboard({
+    super.key,
+    required this.hospitalName,
+    required this.hospitalAddress,
+  });
 
   @override
   State<HospitalDashboard> createState() => _HospitalDashboardState();
@@ -16,9 +22,11 @@ class HospitalDashboard extends StatefulWidget {
 class _HospitalDashboardState extends State<HospitalDashboard> {
   final AudioPlayer _audioPlayer = AudioPlayer();
 
-  // --- HELPER: Get the main name for filtering ---
-  // If ID is "Apollo (Sector 62)", this returns "Apollo"
-  String get searchName => widget.hospitalName.split(' (').first.trim();
+  // Helper: Use just the name for filtering notifications
+  String get searchName => widget.hospitalName.trim();
+
+  // Helper: Combine Name + Address for the "Accepted By" status
+  String get fullName => "${widget.hospitalName} (${widget.hospitalAddress})";
 
   Future<void> _playAudio(String base64String) async {
     if (base64String == "NO_AUDIO" || base64String.isEmpty) return;
@@ -26,7 +34,10 @@ class _HospitalDashboardState extends State<HospitalDashboard> {
       final bytes = base64Decode(base64String);
       await _audioPlayer.play(BytesSource(bytes));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("🔊 Playing Audio Evidence...")),
+        const SnackBar(
+          content: Text("🔊 Playing Audio Evidence..."),
+          backgroundColor: AppColors.primaryGreen,
+        ),
       );
     } catch (e) {
       print("Audio Error: $e");
@@ -34,15 +45,34 @@ class _HospitalDashboardState extends State<HospitalDashboard> {
   }
 
   Future<void> _openMap(double lat, double lng) async {
-    final Uri googleMapsUrl = Uri.parse("http://googleusercontent.com/maps.google.com/?q=$lat,$lng");
-    if (!await launchUrl(googleMapsUrl)) {
-      throw Exception('Could not launch maps');
+    // Use the official Google Maps Universal Link
+    final Uri googleMapsUrl = Uri.parse(
+      "https://www.google.com/maps/search/?api=1&query=$lat,$lng",
+    );
+
+    try {
+      if (!await launchUrl(
+        googleMapsUrl,
+        mode: LaunchMode.externalApplication,
+      )) {
+        throw Exception('Could not launch maps');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Could not open map: $e"),
+            backgroundColor: AppColors.alertRed,
+          ),
+        );
+      }
     }
   }
 
-  // --- ACCEPT EMERGENCY (Uses FULL Unique ID) ---
   Future<void> _acceptEmergency(String docId) async {
-    final docRef = FirebaseFirestore.instance.collection('accidents').doc(docId);
+    final docRef = FirebaseFirestore.instance
+        .collection('accidents')
+        .doc(docId);
 
     try {
       await FirebaseFirestore.instance.runTransaction((transaction) async {
@@ -53,34 +83,20 @@ class _HospitalDashboardState extends State<HospitalDashboard> {
         String currentStatus = snapshot.get('status');
 
         if (currentStatus == 'ACCEPTED') {
-          String takenBy = snapshot.get('hospital_name');
-          throw Exception("Too late! Accepted by $takenBy");
+          throw Exception("Already accepted!");
         }
 
         transaction.update(docRef, {
           "status": "ACCEPTED",
-          "hospital_name": widget.hospitalName, // Save "Apollo (Sector 62)"
+          // Save the Full Name (Name + Address) so User sees exact location
+          "hospital_name": fullName,
         });
       });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("✅ You (${widget.hospitalName}) accepted the emergency!"),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
     } catch (e) {
       if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text("⚠️ Request Expired"),
-            content: Text(e.toString().replaceAll("Exception: ", "")),
-            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK"))],
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     }
   }
@@ -88,350 +104,274 @@ class _HospitalDashboardState extends State<HospitalDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(widget.hospitalName, style: const TextStyle(fontSize: 16)),
-        backgroundColor: Colors.red[800],
+        // DISPLAY NAME AND ADDRESS IN APP BAR
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.hospitalName,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            Text(
+              widget.hospitalAddress,
+              style: const TextStyle(fontSize: 10, color: Colors.white70),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+            ),
+          ),
+        ),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('accidents')
-            .orderBy('timestamp', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppColors.backgroundStart, AppColors.backgroundEnd],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('accidents')
+              .orderBy('timestamp', descending: true)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppColors.alertRed),
+              );
+            }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("✅ No Active Emergencies"));
-          }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return const Center(
+                child: Text(
+                  "✅ System Clear: No Alerts",
+                  style: TextStyle(color: Colors.white54),
+                ),
+              );
+            }
 
-          // --- SMART FILTERING LOGIC ---
-          var myDocs = snapshot.data!.docs.where((doc) {
-            var data = doc.data() as Map<String, dynamic>;
-            
-            // 1. Is it meant for me? (Check if Google Maps name contains "Apollo")
-            List nearby = data['nearby_hospitals'] ?? [];
-            bool isForMe = nearby.any((h) => 
-              h['name'].toString().toLowerCase().contains(searchName.toLowerCase())
-            );
+            // FILTERING LOGIC
+            var myDocs = snapshot.data!.docs.where((doc) {
+              var data = doc.data() as Map<String, dynamic>;
 
-            // 2. Did I accept it? (Check exact match "Apollo (Sector 62)")
-            bool didIAccept = data['hospital_name'] == widget.hospitalName;
+              // 1. Is it meant for me? (Check if nearby_hospitals contains my Name)
+              List nearby = data['nearby_hospitals'] ?? [];
+              bool isForMe = nearby.any(
+                (h) => h['name'].toString().toLowerCase().contains(
+                  searchName.toLowerCase(),
+                ),
+              );
 
-            bool isActive = ['PENDING', 'CRITICAL', 'ACCEPTED'].contains(data['status']);
+              // 2. Did I accept it? (Check if DB field matches my FULL name)
+              bool didIAccept = data['hospital_name'] == fullName;
 
-            return (isForMe || didIAccept) && isActive;
-          }).toList();
+              bool isActive = [
+                'PENDING',
+                'CRITICAL',
+                'ACCEPTED',
+              ].contains(data['status']);
 
-          if (myDocs.isEmpty) {
-            return Center(
-              child: Text(
-                "✅ No Active Alerts for '$searchName'",
-                style: const TextStyle(color: Colors.grey, fontSize: 16),
-              ),
-            );
-          }
+              return (isForMe || didIAccept) && isActive;
+            }).toList();
 
-          return ListView.builder(
-            itemCount: myDocs.length,
-            itemBuilder: (context, index) {
-              var data = myDocs[index].data() as Map<String, dynamic>;
-              String docId = myDocs[index].id;
-              
-              double gForce = data['g_force'] ?? 0.0;
-              String analysis = data['ai_analysis'] ?? "No Analysis";
-              Map loc = data['location'] is Map ? data['location'] : {'lat': 0.0, 'lng': 0.0};
-              String audioBase64 = data['audio_base64'] ?? "NO_AUDIO";
-              bool isTaken = data['status'] == 'ACCEPTED';
-              bool isTakenByMe = data['hospital_name'] == widget.hospitalName;
+            if (myDocs.isEmpty) {
+              return Center(
+                child: Text(
+                  "No Active Alerts for '$searchName'",
+                  style: const TextStyle(color: Colors.white30),
+                ),
+              );
+            }
 
-              return Card(
-                color: isTaken ? (isTakenByMe ? Colors.green[50] : Colors.grey[300]) : Colors.white,
-                margin: const EdgeInsets.all(10),
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(15),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.warning, color: Colors.red, size: 30),
-                          const SizedBox(width: 10),
-                          Text(
-                            "CRASH DETECTED (${gForce.toStringAsFixed(1)} G)",
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red),
-                          ),
-                        ],
-                      ),
-                      const Divider(),
-                      Text("🤖 AI Report: $analysis", style: TextStyle(color: Colors.grey[800])),
-                      const SizedBox(height: 10),
+            // LISTVIEW IS NATURALLY SCROLLABLE
+            return ListView.builder(
+              padding: const EdgeInsets.fromLTRB(15, 100, 15, 20),
+              itemCount: myDocs.length,
+              itemBuilder: (context, index) {
+                var data = myDocs[index].data() as Map<String, dynamic>;
+                String docId = myDocs[index].id;
 
-                      // Buttons
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () => _playAudio(audioBase64),
-                            icon: const Icon(Icons.play_arrow),
-                            label: const Text("Listen"),
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                          ),
-                          ElevatedButton.icon(
-                            onPressed: () => _openMap(loc['lat'], loc['lng']),
-                            icon: const Icon(Icons.map),
-                            label: const Text("Map"),
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
+                double gForce = data['g_force'] ?? 0.0;
+                String analysis = data['ai_analysis'] ?? "No Analysis";
+                Map loc = data['location'] is Map
+                    ? data['location']
+                    : {'lat': 0.0, 'lng': 0.0};
+                String audioBase64 = data['audio_base64'] ?? "NO_AUDIO";
+                bool isTaken = data['status'] == 'ACCEPTED';
 
-                      // Hospital List (Admin View)
-                      if (data['nearby_hospitals'] != null) ...[
-                        const Divider(),
-                        const Text("Nearby Hospitals Alerted:", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                         ...(data['nearby_hospitals'] as List).map((h) {
-                           // Highlight MY hospital in the list
-                           bool isMe = h['name'].toString().toLowerCase().contains(searchName.toLowerCase());
-                           return Text(
-                             "• ${h['name']}", 
-                             style: TextStyle(
-                               fontSize: 12, 
-                               fontWeight: isMe ? FontWeight.bold : FontWeight.normal,
-                               color: isMe ? Colors.black : Colors.grey
-                             )
-                           );
-                         }).toList(),
-                         const SizedBox(height: 10),
-                      ],
+                // Check against FULL NAME for ownership
+                bool isTakenByMe = data['hospital_name'] == fullName;
 
-                      // ACTION BUTTON
-                      SizedBox(
-                        width: double.infinity,
-                        child: isTaken
-                            ? ElevatedButton(
-                                onPressed: null,
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-                                child: Text(isTakenByMe ? "✅ ACCEPTED BY YOU" : "⚠️ TAKEN BY OTHER"),
-                              )
-                            : ElevatedButton(
-                                onPressed: () => _acceptEmergency(docId),
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red[800]),
-                                child: const Text("ACCEPT EMERGENCY"),
-                              ),
+                Color borderColor = isTakenByMe
+                    ? AppColors.primaryGreen
+                    : AppColors.alertRed;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 20),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: borderColor.withOpacity(0.5),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: borderColor.withOpacity(0.1),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
                       ),
                     ],
                   ),
-                ),
-              );
-            },
-          );
-        },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // HEADER
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: borderColor,
+                            size: 30,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              isTakenByMe ? "CASE ACCEPTED" : "CRITICAL ALERT",
+                              style: TextStyle(
+                                color: borderColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white10,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              "${gForce.toStringAsFixed(1)} G",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 15),
+                      const Divider(color: Colors.white10),
+                      const SizedBox(height: 10),
+
+                      // CONTENT
+                      Text(
+                        analysis.length > 100
+                            ? "${analysis.substring(0, 100)}..."
+                            : analysis,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          height: 1.5,
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // ACTION BUTTONS
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _openMap(loc['lat'], loc['lng']),
+                              icon: const Icon(Icons.map_outlined),
+                              label: const Text("Locate"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blueAccent.withOpacity(
+                                  0.2,
+                                ),
+                                foregroundColor: Colors.blueAccent,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _playAudio(audioBase64),
+                              icon: const Icon(Icons.volume_up_rounded),
+                              label: const Text("Listen"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white10,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 15),
+
+                      // MAIN ACCEPT BUTTON
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: isTaken
+                              ? null
+                              : () => _acceptEmergency(docId),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isTakenByMe
+                                ? AppColors.primaryGreen
+                                : AppColors.alertRed,
+                            disabledBackgroundColor: Colors.grey.withOpacity(
+                              0.2,
+                            ),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            isTaken
+                                ? (isTakenByMe
+                                      ? "✅ UNIT DISPATCHED"
+                                      : "⚠️ TAKEN BY OTHER")
+                                : "ACCEPT EMERGENCY & DISPATCH",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
 }
-
-// import 'dart:convert';
-// import 'package:flutter/material.dart';
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:audioplayers/audioplayers.dart'; // Play the evidence
-// import 'package:url_launcher/url_launcher.dart'; // Open Google Maps
-// // import '../utils/constants.dart';
-
-// class HospitalDashboard extends StatefulWidget {
-//   const HospitalDashboard({super.key});
-
-//   @override
-//   State<HospitalDashboard> createState() => _HospitalDashboardState();
-// }
-
-// class _HospitalDashboardState extends State<HospitalDashboard> {
-//   final AudioPlayer _audioPlayer = AudioPlayer();
-
-//   // --- PLAY AUDIO EVIDENCE (Base64 -> Sound) ---
-//   Future<void> _playAudio(String base64String) async {
-//     if (base64String == "NO_AUDIO" || base64String.isEmpty) return;
-
-//     try {
-//       // 1. Convert Text back to Bytes
-//       final bytes = base64Decode(base64String);
-      
-//       // 2. Play the Bytes
-//       await _audioPlayer.play(BytesSource(bytes));
-      
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         const SnackBar(content: Text("🔊 Playing Audio Evidence...")),
-//       );
-//     } catch (e) {
-//       print("Audio Error: $e");
-//     }
-//   }
-
-//   // --- OPEN MAPS ---
-//   Future<void> _openMap(double lat, double lng) async {
-//     final Uri googleMapsUrl = Uri.parse("http://googleusercontent.com/maps.google.com/?q=$lat,$lng");
-//     if (!await launchUrl(googleMapsUrl)) {
-//       throw Exception('Could not launch maps');
-//     }
-//   }
-
-//   // --- ACCEPT EMERGENCY ---
-//   Future<void> _acceptEmergency(String docId) async {
-//     await FirebaseFirestore.instance.collection('accidents').doc(docId).update({
-//       "status": "ACCEPTED",
-//       "hospital_name": "City General Hospital", // In a real app, this would be the logged-in hospital's name
-//     });
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: Colors.grey[100],
-//       appBar: AppBar(
-//         title: const Text("🚑 Hospital Dispatch", style: TextStyle(color: Colors.white)),
-//         backgroundColor: Colors.red[800],
-//       ),
-//       body: StreamBuilder<QuerySnapshot>(
-//         stream: FirebaseFirestore.instance
-//             .collection('accidents')
-//             .where('status', whereIn: ['PENDING', 'CRITICAL']) // Filter
-//             .orderBy('timestamp', descending: true)            // Sort
-//             .snapshots(),
-//         builder: (context, snapshot) {
-          
-//           // 1. CHECK FOR INDEX ERROR
-//           if (snapshot.hasError) {
-//             print("❌ FIRESTORE ERROR: ${snapshot.error}");
-//             return Center(
-//               child: Padding(
-//                 padding: const EdgeInsets.all(20.0),
-//                 child: Text(
-//                   "Missing Index Error!\n\nCheck your VS Code Debug Console for a link to create it.",
-//                   textAlign: TextAlign.center,
-//                   style: const TextStyle(color: Colors.red),
-//                 ),
-//               ),
-//             );
-//           }
-
-//           // 2. Loading State
-//           if (snapshot.connectionState == ConnectionState.waiting) {
-//             return const Center(child: CircularProgressIndicator());
-//           }
-
-//           // 3. Empty State
-//           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-//             return const Center(
-//               child: Text("✅ No Active Emergencies", style: TextStyle(fontSize: 18)),
-//             );
-//           }
-
-//           var docs = snapshot.data!.docs;
-
-//           return ListView.builder(
-//             itemCount: docs.length,
-//             itemBuilder: (context, index) {
-//               var data = docs[index].data() as Map<String, dynamic>;
-//               String docId = docs[index].id;
-              
-//               double gForce = data['g_force'] ?? 0.0;
-//               String analysis = data['ai_analysis'] ?? "No Analysis";
-//               // Handle location safely (sometimes it might be null or missing keys)
-//               Map loc = data['location'] is Map ? data['location'] : {'lat': 0.0, 'lng': 0.0};
-//               String audioBase64 = data['audio_base64'] ?? "NO_AUDIO"; 
-
-//               return Card(
-//                 margin: const EdgeInsets.all(10),
-//                 elevation: 5,
-//                 color: Colors.white,
-//                 child: Padding(
-//                   padding: const EdgeInsets.all(15),
-//                   child: Column(
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: [
-//                       // --- HEADER ---
-//                       Row(
-//                         children: [
-//                           const Icon(Icons.warning, color: Colors.red, size: 30),
-//                           const SizedBox(width: 10),
-//                           Text(
-//                             "CRASH DETECTED (${gForce.toStringAsFixed(1)} G)",
-//                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red),
-//                           ),
-//                         ],
-//                       ),
-//                       const Divider(),
-                      
-//                       // --- AI REPORT ---
-//                       Text("🤖 AI Report: $analysis", style: TextStyle(color: Colors.grey[800])),
-//                       const SizedBox(height: 10),
-
-//                       // --- ACTION BUTTONS (Listen / Map) ---
-//                       Row(
-//                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-//                         children: [
-//                           ElevatedButton.icon(
-//                             onPressed: () => _playAudio(audioBase64),
-//                             icon: const Icon(Icons.play_arrow),
-//                             label: const Text("Listen"),
-//                             style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-//                           ),
-//                           ElevatedButton.icon(
-//                             onPressed: () => _openMap(loc['lat'], loc['lng']),
-//                             icon: const Icon(Icons.map),
-//                             label: const Text("Map"),
-//                             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-//                           ),
-//                         ],
-//                       ),
-//                       const SizedBox(height: 10),
-
-//                       // --- NEARBY HOSPITALS LIST (NEW) ---
-//                       if (data['nearby_hospitals'] != null) ...[
-//                         const Divider(),
-//                         const Text("🏥 Nearby Hospitals Notified:", style: TextStyle(fontWeight: FontWeight.bold)),
-//                         const SizedBox(height: 5),
-//                         ...(data['nearby_hospitals'] as List).map((h) {
-//                           return ListTile(
-//                             dense: true,
-//                             contentPadding: EdgeInsets.zero,
-//                             leading: const Icon(Icons.local_hospital, color: Colors.red),
-//                             title: Text(h['name'] ?? "Unknown Hospital"),
-//                             subtitle: Text(h['phone']?.toString().isNotEmpty == true ? h['phone'] : "No Phone"),
-//                             trailing: h['name'] == data['hospital_name']
-//                                 ? const Icon(Icons.check_circle, color: Colors.green)
-//                                 : const Text("Request Sent", style: TextStyle(color: Colors.orange, fontSize: 10)),
-//                           );
-//                         }).toList(),
-//                         const SizedBox(height: 10),
-//                       ],
-
-//                       // --- ACCEPT BUTTON ---
-//                       SizedBox(
-//                         width: double.infinity,
-//                         child: ElevatedButton(
-//                           onPressed: () => _acceptEmergency(docId),
-//                           style: ElevatedButton.styleFrom(
-//                             backgroundColor: Colors.red[800],
-//                             padding: const EdgeInsets.symmetric(vertical: 12),
-//                           ),
-//                           child: const Text("ACCEPT EMERGENCY", style: TextStyle(fontSize: 16)),
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//               );
-//             },
-//           );
-//         },
-//       ),
-//     );
-//   }
-// }
