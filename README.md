@@ -17,13 +17,30 @@ Most crash detection apps drain battery or trigger on every phone drop. Guardian
 * **Function:** Runs silently in the background using minimal battery. It monitors the accelerometer and gyroscope for sudden spikes (>2.5G) or violent rotations.
 * **Role:** It is the "Watchdog" that only wakes up the app when absolutely necessary.
 
-### 2. The Judge (AI Verification) 🧠
-* **Technology:** Flutter + TensorFlow Lite + Firebase + GenAI.
-* **Function:** Once woken up, the app records **10 seconds of ambient audio** and fuses it with sensor data.
-    * **On-Device AI (YAMNet):** Instantly scans audio for "Glass Breaking", "Thuds", or "Screaming".
-    * **Cloud GenAI (Pollinations):** Analyzes the context to make the final decision.
-* **Role:** It acts as the "Judge" to rule out false alarms (e.g., phone dropping on a gym floor vs. a car crash).
+### 2. The Judge (Hybrid AI Architecture) 🧠
 
+Guardian uses a **Two-Stage Hybrid Inference** pipeline to ensure accuracy, privacy, and battery efficiency.
+
+#### **Stage 1: On-Device Audio Classification (The "Ears")** 👂
+* **Engine:** TensorFlow Lite (YAMNet Model).
+* **Process:** Instantly records **10 seconds of raw audio** (16kHz, Mono) and scans for high-risk acoustic signatures offline.
+* **Triggers:** *Glass Breaking, Vehicle Impact, Skid/Squeal, Airbag Explosion, Screaming.*
+
+#### **Stage 2: Cloud Contextual Analysis (The "Brain")** ☁️
+* **Engine:** Pollinations AI (GenAI).
+* **Process:** Acts as a forensic investigator. It combines **G-Force Data + Detected Audio Tags** to determine context.
+* **Context:** Distinguishes between a *Phone Drop (High G + Silence)* and a *Car Crash (High G + Impact Sounds)*.
+
+#### **⚖️ The Decision Matrix**
+The AI follows a strict logic protocol to filter false alarms:
+
+| G-Force | Audio Evidence (YAMNet) | Verdict | System Action |
+| :--- | :--- | :--- | :--- |
+| **> 4.0 G** | "Crash", "Glass", "Bang" | **CRITICAL** 🚨 | **SOS SENT** + Hospital Alert |
+| **< 3.0 G** | "Silence", "Music", "Speech" | **FALSE ALARM** ✅ | **GREEN SCREEN** (Event Ignored) |
+| **High** | "Microphone Error" | **FAIL-SAFE** ⚠️ | **SOS SENT** (Safety First) |
+
+> **Fail-Safe Protocol:** If the Cloud AI server is unreachable (Offline/502), the system automatically defaults to **CRITICAL** mode. We prioritize saving a life over avoiding a false alarm in worst-case scenarios.
 ---
 
 ## 🚀 Key Features
@@ -107,7 +124,7 @@ This app uses Google services for Maps and AI.
 Since we cannot crash a real car on stage, the app includes a **Secret Demo Menu** on the Home Screen:
 
 1.  **Test False Alarm (Button A):**
-    * Simulates **2.2 G-Force** (Minor Bump).
+    * Simulates **2.5 G-Force** (Minor Bump).
     * AI Analysis: *"Low Impact + No Crash Sounds"* → **FALSE ALARM**.
     * Result: **Green Screen**, No SMS.
 2.  **Test Real Crash (Button B):**
