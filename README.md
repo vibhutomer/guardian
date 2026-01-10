@@ -137,7 +137,7 @@ Since we cannot crash a real car on stage, the app includes a **Secret Demo Menu
 ## 👥 Contributors
 
 * **Vibhu Tomer** - *Flutter Developer, System Architect & Firebase Integration*
-* **Sharukh Ahmad** - *Kotlin & Native Modules Developer*
+* **Sharukh Ahamad** - *Kotlin & Native Modules Developer*
 * **Shavez Ali** - *Kotlin & Sensor Logic Developer*
 * **Jaskaran Singh** - *AI Engineer & Model Integration*
 
