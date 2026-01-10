@@ -1,21 +1,44 @@
-# 🛡️ Guardian: AI-Powered Accident Detection & Emergency Response System
+# 🛡️ Guardian: AI-Verified Accident Detection & Response System
 
-> **"Seconds Save Lives."**
+> **"False Alarms Kill Trust. We Kill False Alarms."**
 >
-> Guardian is a Flutter-based intelligent safety application designed to detect vehicular crashes in real-time, analyze severity with AI, and bridge the gap between victims, emergency contacts, and hospitals.
+> Guardian is a next-gen safety application that combines **low-power native sensors** with **on-device AI** to distinguish real crashes from phone drops. It acts as an intelligent gatekeeper—verifying incidents before disturbing emergency services.
 
 ---
 
-## 🌟 Key Features
+## 🌟 The Innovation: "Hybrid Gatekeeper" Architecture
 
-* **⚡ Smart Crash & Rollover Detection:**
-    * Uses native Android sensors (Accelerometer & Gyroscope) to detect impacts.
-    * **Advanced Filtering:** Distinguishes between **Car Crashes**, **Bike Rollovers** (>4 rad/s rotation), and accidental **Phone Drops** (freefall detection) to prevent false alarms.
-* **🎙️ Audio Evidence "Black Box":** Automatically records ambient audio for 10 seconds during the alert countdown. This audio is uploaded to the cloud to help responders verify the severity of the crash.
-* **🧠 Gemini AI Analysis:** Uses Generative AI (via Pollinations) to process sensor data and categorize the incident as "CRITICAL" (Ambulance needed) or "WARNING".
-* **🏥 Hospital Dispatch Dashboard:** A dedicated interface for hospitals to receive alerts, view the crash location on a map, listen to the audio evidence, and **"Accept"** the emergency.
-* **📍 Instant SOS with Geolocation:** Automatically fetches high-accuracy GPS coordinates and sends an SMS with a tracking link to emergency contacts.
-* **☁️ Real-Time Status Updates:** When a hospital accepts the emergency, the user's screen instantly updates from "Waiting for Help" to **"Ambulance Dispatched"** via Firebase streams.
+
+
+Most crash detection apps drain battery or trigger on every phone drop. Guardian solves this by splitting detection into two phases: **The Trigger** and **The Judge**.
+
+### 1. The Trigger (Low-Power Sentinel) 🔋
+* **Technology:** Native Android Service (Kotlin).
+* **Function:** Runs silently in the background using minimal battery. It monitors the accelerometer and gyroscope for sudden spikes (>2.5G) or violent rotations.
+* **Role:** It is the "Watchdog" that only wakes up the app when absolutely necessary.
+
+### 2. The Judge (AI Verification) 🧠
+* **Technology:** Flutter + TensorFlow Lite + Firebase + GenAI.
+* **Function:** Once woken up, the app records **10 seconds of ambient audio** and fuses it with sensor data.
+    * **On-Device AI (YAMNet):** Instantly scans audio for "Glass Breaking", "Thuds", or "Screaming".
+    * **Cloud GenAI (Pollinations):** Analyzes the context to make the final decision.
+* **Role:** It acts as the "Judge" to rule out false alarms (e.g., phone dropping on a gym floor vs. a car crash).
+
+---
+
+## 🚀 Key Features
+
+* **⚡ Smart Sensor Fusion:**
+    * Native background processing filters out "Freefall" events (phone drops) before they even reach the AI.
+* **🚫 False Alarm Prevention (Green Screen Protocol):**
+    * If the AI determines the event is safe (e.g., loud music + low impact), the screen turns **GREEN** ("False Alarm").
+    * No SMS is sent, and the event is logged as "Ignored" to prevent panic.
+* **🏥 Hospital Dispatch Dashboard:**
+    * A dedicated tablet interface for paramedics.
+    * Shows exact crash location and allows responders to **listen to the audio evidence** before dispatching.
+* **📍 Instant SOS with Live Tracking:**
+    * If verified as **CRITICAL**, the app sends an SMS with high-accuracy Google Maps coordinates to emergency contacts.
+    * **Fail-Safe Mode:** If the AI server is unreachable, the system defaults to "Critical" to ensure safety.
 
 ---
 
@@ -28,78 +51,97 @@
 | *Choose User or Hospital* | *Secure Sign-In* | *Manage Trusted Contacts* | *Active Protection Mode* |
 
 ### 2️⃣ The Accident Workflow (User Side)
-| **Crash Detected** | **AI Analysis** | **SOS Sent** | **Connecting Hospital** |
-|:---:|:---:|:---:|:---:|
-| ![Crash Detected](FlutterApp/Screenshots/crash_detected.jpeg) | ![Analysing Environment](FlutterApp/Screenshots/analysing_environment.jpeg) | ![SOS Sent](FlutterApp/Screenshots/sos_sent.jpeg) | ![Connecting Hospital](FlutterApp/Screenshots/Connecting_hospital.jpeg) |
-| *Real-time Alert Countdown* | *Processing Sensor Data* | *Alerts Dispatched* | *Finding Nearby Help* |
+| **Crash Detected** | **AI Analysis** | **False Alarm** | **Connecting Hospital** | **SOS Sent** |
+|:---:|:---:|:---:|:---:|:---:|
+| ![Crash Detected](FlutterApp/Screenshots/crash_detected.jpeg) | ![Analysing Environment](FlutterApp/Screenshots/analysing_environment.jpeg) | ![False Alarm](FlutterApp/Screenshots/false_alarm.jpeg) | ![Connecting Hospital](FlutterApp/Screenshots/Connecting_hospital.jpeg) | ![SOS Sent](FlutterApp/Screenshots/sos_sent.jpeg) |
+| *Real-time Alert Countdown* | *Processing Sensor Data* | *AI Cancels Alert* | *Finding Nearby Help* | *Alerts Dispatched* |
 
 ### 3️⃣ Hospital Response System
-| **Hospital Portal** | **Dashboard Feed** | **Incident Details** | **Location View** | **Case Accepted** |
+| **Dashboard Feed** | **Hospital Portal** | **Incident Details** | **Location View** | **Case Accepted** |
 |:---:|:---:|:---:|:---:|:---:|
-| ![Hospital Portal](FlutterApp/Screenshots/hospital_screen.jpeg) | ![Hospital Dashboard](FlutterApp/Screenshots/hospital_dashboard.jpeg) | ![Alert Details](FlutterApp/Screenshots/alert.jpeg) | ![Alert Message](FlutterApp/Screenshots/alert_message.jpeg) | ![Case Accepted](FlutterApp/Screenshots/case_accepted.jpeg) |
-| *Admin Login* | *Incoming Feed* | *Severity Data* | *Map Location* | *Dispatch Confirmed* |
-
-
----
-
-## 🛠️ Tech Stack
-
-* **Framework:** Flutter (Dart)
-* **Native Layer:** Kotlin (MethodChannels for background sensor processing)
-* **Backend:** Firebase Firestore (Real-time database)
-* **Auth:** Firebase Auth & Google Sign-In
-* **AI Service:** Pollinations.ai API (Prompt Engineering for Crash Analysis)
-* **Hardware Features:**
-    * `sensors_plus` & Native Android SensorManager
-    * `record` & `audioplayers` (Audio Evidence)
-    * `geolocator` (GPS)
-    * `sms_sender_background` (Emergency Alerts)
+| ![Hospital Dashboard](FlutterApp/Screenshots/hospital_dashboard.jpeg) | ![Hospital Portal](FlutterApp/Screenshots/hospital_screen.jpeg) | ![Alert Details](FlutterApp/Screenshots/alert.jpeg) | ![Alert Message](FlutterApp/Screenshots/alert_message.jpeg) | ![Case Accepted](FlutterApp/Screenshots/case_accepted.jpeg) |
+| *Incoming Feed* | *Admin Login* | *Severity Data* | *Map Location* | *Dispatch Confirmed* |
 
 ---
 
-## ⚙️ How It Works (Workflow)
+## 🛠️ Key Plugins & Tech Stack
 
-1.  **Monitoring:** The app listens to sensor streams in the background (using a low-latency native channel).
-2.  **Detection:**
-    * **Impact:** >2.5G force detected.
-    * **Rollover:** High rotation detected (useful for bike accidents).
-    * **Filter:** If "Freefall" is detected beforehand, the alert is ignored (Phone Drop).
-3.  **Alert Phase:**
-    * A loud alarm sounds.
-    * **Microphone starts recording**.
-    * A 10-second countdown gives the driver a chance to cancel ("I Am Safe").
-4.  **Action (If not cancelled):**
-    * **Data Upload:** G-Force, Location, and **Base64 encoded Audio** are sent to Firestore.
-    * **SMS Dispatch:** Emergency contacts receive a text with the location link.
-    * **Hospital Alert:** The incident appears on the **Hospital Dashboard**.
-5.  **Response:**
-    * Paramedics listen to the audio evidence and view the map.
-    * Hospital clicks **"Accept Emergency"**.
-    * User's app turns **Green**: "AMBULANCE DISPATCHED".
+Guardian leverages powerful open-source libraries to achieve real-time safety:
+
+### **Core Functionality**
+* **`geolocator: ^14.0.2`** – Fetches high-accuracy GPS coordinates for the SOS link.
+* **`sms_sender_background: ^1.0.6`** – Sends critical SMS alerts even if the app is minimized.
+* **`record: ^6.1.2`** & **`path_provider`** – Records the 10-second "Black Box" audio evidence in WAV format.
+* **`audioplayers: ^6.5.1`** – Allows hospitals to playback the crash audio.
+
+### **AI & Data**
+* **`google_generative_ai: ^0.4.0`** – Powers the Cloud AI decision-making (Gemini/Pollinations integration).
+* **`tflite_flutter`** – Runs the offline YAMNet audio model (on-device).
+* **`firebase_core`, `auth`, `firestore`** – Handles real-time syncing between the User and Hospital Dashboard.
+
+### **Permissions & Utilities**
+* **`permission_handler: ^12.0.1`** – Manages critical access to SMS, Location, and Microphone.
+* **`shared_preferences`** – Stores emergency contacts locally for offline access.
+* **`url_launcher`** – Opens Google Maps for route navigation.
+
+---
+
+## ⚙️ Setup & Configuration (Crucial Steps)
+
+To run this project successfully, you must complete these configuration steps:
+
+### 1. Add Emergency Contacts 📞
+The SOS feature will **NOT** work until you add contacts.
+* Open the app → Login → Go to **"Manage Emergency Contacts"**.
+* Add at least one phone number (e.g., your own secondary number for testing).
+
+### 2. Configure API Keys 🔑
+This app uses Google services for Maps and AI.
+* **Google Maps API:** Ensure your API key is added to `android/app/src/main/AndroidManifest.xml`.
+* **Gemini/Pollinations AI:** If you are using a specific API key for the AI service, ensure it is updated in `lib/services/sensor_service.dart` or `lib/services/google_places_service.dart`.
+
+---
+
+## 🧪 How to Demo (Hackathon Mode)
+
+Since we cannot crash a real car on stage, the app includes a **Secret Demo Menu** on the Home Screen:
+
+1.  **Test False Alarm (Button A):**
+    * Simulates **2.2 G-Force** (Minor Bump).
+    * AI Analysis: *"Low Impact + No Crash Sounds"* → **FALSE ALARM**.
+    * Result: **Green Screen**, No SMS.
+2.  **Test Real Crash (Button B):**
+    * Simulates **8.8 G-Force** (Severe Impact).
+    * AI Analysis: *"High G-Force Threshold Exceeded"* → **CRITICAL ALERT**.
+    * Result: **Red Screen**, SMS Sent to contacts.
 
 ---
 
 ## 📥 Installation
 
-1.  **Prerequisites:** Flutter SDK, Android Studio, and a physical Android device (Simulators cannot test G-Force sensors).
-2.  **Clone the Repository:**
+1.  **Clone & Install:**
     ```bash
     git clone [https://github.com/vibhutomer/guardian.git](https://github.com/vibhutomer/guardian.git)
     cd guardian
-    ```
-3.  **Install Dependencies:**
-    ```bash
     flutter pub get
     ```
-4.  **Firebase Setup:**
-    * Add your `google-services.json` to `android/app/`.
-    * Enable **Authentication** (Google) and **Firestore** in the Firebase Console.
-5.  **Run the App:**
+2.  **Setup Assets:**
+    * Ensure `assets/yamnet.tflite` and `assets/icon.png` are present.
+3.  **Run:**
     ```bash
     flutter run
     ```
 
 ---
 
+## 👥 Contributors
+
+* **Vibhu Tomer** - *Flutter Developer, System Architect & Firebase Integration*
+* **Sharukh Ahmad** - *Kotlin & Native Modules Developer*
+* **Shavez Ali** - *Kotlin & Sensor Logic Developer*
+* **Jaskaran Singh** - *AI Engineer & Model Integration*
+
+---
+
 ## ⚠️ Disclaimer
-*Guardian is a safety aid and prototype. It relies on network availability for SMS/Cloud features and sensor accuracy for detection. It should not replace responsible driving.*
+*Guardian is a prototype safety aid. While the Hybrid Gatekeeper significantly reduces false alarms, no system is 100% perfect. Always drive responsibly.*
