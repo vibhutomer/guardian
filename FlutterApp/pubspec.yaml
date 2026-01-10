@@ -52,6 +52,7 @@ dependencies:
   url_launcher: ^6.3.2
   tflite_flutter: ^0.12.1
   csv: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:
@@ -79,6 +80,7 @@ flutter:
   assets:
     - assets/yamnet.tflite
     - assets/yamnet_class_map.csv
+    - assets/appicon.jpeg
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 
