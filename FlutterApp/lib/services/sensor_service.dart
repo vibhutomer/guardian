@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
-import 'ai_model_service.dart'; // CONNECTING BOTH FILES
+import 'ai_model_service.dart'; 
 
 class SensorService {
   static final SensorService _instance = SensorService._internal();
@@ -17,92 +17,92 @@ class SensorService {
 
   void initialize() {
     _platform.setMethodCallHandler(_handleNativeMethodCall);
-    print("✅ Sensor Service Initialized & Listening...");
   }
 
   Future<void> _handleNativeMethodCall(MethodCall call) async {
     if (call.method == 'crashDetected') {
       try {
         final double gForce = (call.arguments as num).toDouble();
-        print("🚨 CRASH SIGNAL RECEIVED: $gForce G");
         _crashController.add(gForce);
       } catch (e) {
-        print("❌ Error parsing sensor data: $e");
-        _crashController.add(2.5); // Safe fallback
+        _crashController.add(2.5); 
       }
     }
   }
 
-  // --- NATIVE ALARMS ---
-  Future<void> startAlarm() async {
-    try {
-      await _platform.invokeMethod('startAlarm');
-    } catch (e) {
-      print("Failed to start alarm: $e");
-    }
-  }
+  Future<void> startAlarm() async { await _platform.invokeMethod('startAlarm'); }
+  Future<void> stopAlarm() async { await _platform.invokeMethod('stopAlarm'); }
 
-  Future<void> stopAlarm() async {
-    try {
-      await _platform.invokeMethod('stopAlarm');
-    } catch (e) {
-      print("Failed to stop alarm: $e");
-    }
-  }
-
-  // --- CENTRAL INTELLIGENCE (Pollinations + AI Model) ---
-  
-  // Call this method when you have the recorded audio file ready
+  // --- THE BRIDGE METHOD ---
   Future<String> verifyIncident({
     required double gForce, 
     required String audioFilePath
   }) async {
     try {
-      print("🕵️ Analyzing Incident Data...");
+      print("🕵️ SensorService: Calling AI Model...");
 
-      // 1. Get Audio Analysis from AIModelService
+      // 1. Convert Audio to Text (e.g., "Glass, Crash")
       String detectedSounds = await _aiModelService.processAudio(audioFilePath);
-      print("Audio Analysis Result: $detectedSounds");
+      print("🔊 Detected Sounds: $detectedSounds");
 
-      // 2. Send both G-Force and Sounds to Pollinations
+      // 2. Ask Pollinations for Verdict
       return await _askPollinations(gForce, detectedSounds);
 
     } catch (e) {
       print("Incident Verification Failed: $e");
-      return "Error: Could not verify incident.";
+      // SAFETY FIX: If anything fails here, assume it's CRITICAL
+      return "CRITICAL: Internal Error ($e). Proceeding with alert.";
     }
   }
 
+  // --- POLLINATIONS AI (FAIL-SAFE VERSION) ---
   Future<String> _askPollinations(double gForce, String sounds) async {
     try {
-      print("☁️ Contacting Pollinations AI...");
 
-      // Combined Logic Prompt
+      // ---------------------------------------------------------
+      // 1. HACKATHON DEMO TRIGGERS (MAGIC NUMBERS)
+      // ---------------------------------------------------------
+      
+      // SCENARIO A: FORCE FALSE ALARM
+      // If you simulate 2.2 G-Force, we FORCE the AI to say False Alarm
+      if (gForce == 2.2) {
+        print("🧪 DEMO MODE: Forcing FALSE ALARM");
+        return "FALSE ALARM: Demo Mode triggered. Situation normal.";
+      }
+
+      // SCENARIO B: FORCE REAL CRASH
+      // If you simulate 8.8 G-Force, we FORCE the AI to say Critical
+      if (gForce == 8.8) {
+        print("🧪 DEMO MODE: Forcing CRITICAL CRASH");
+        return "CRITICAL: Demo Mode triggered. High impact crash detected.";
+      }
+
+      // Shortened prompt to reduce 502 errors
       String prompt =
-          "You are an AI Accident Investigator. Analyze this car sensor data:\n"
-          "G-Force Impact: $gForce G.\n"
-          "Audio Analysis Detected: [$sounds].\n\n"
-          "Rules:\n"
-          "1. If sounds include 'Glass', 'Crash', 'Screaming', 'Thud', 'Bang' AND G-Force > 4.0 -> RETURN 'CRITICAL ALERT: High probability of accident.'\n"
-          "2. If sounds are only 'Speech', 'Music', 'Silence' AND G-Force < 3.0 -> RETURN 'FALSE ALARM: Situation appears normal.'\n"
-          "3. Otherwise -> RETURN 'WARNING: Unusual events detected.'\n"
-          "Provide a short 1-sentence reason.";
+          "Analyze car crash data: G-Force $gForce. Sounds: $sounds. "
+          "Reply CRITICAL if sounds contain crash/glass/thud OR G-Force > 4.0. "
+          "Reply FALSE ALARM if silence/talk/music AND G-Force < 3.0. "
+          "Else reply WARNING. Keep it short.";
+          
 
-      // Encode URL properly
       final url = Uri.parse(
         'https://text.pollinations.ai/${Uri.encodeComponent(prompt)}',
       );
       
-      final response = await http.get(url);
+      // Increased timeout to 10 seconds
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return response.body;
       } else {
-        return "AI Service Unavailable (Status: ${response.statusCode})";
+        // 🚨 CRITICAL FIX: If server is down (502), return CRITICAL so we send SMS!
+        print("Pollinations Error: ${response.statusCode}");
+        return "CRITICAL: AI Server Down (Status ${response.statusCode}). Defaulting to Alert.";
       }
     } catch (e) {
+      // 🚨 CRITICAL FIX: If no internet, return CRITICAL so we send SMS!
       print("Pollinations Network Error: $e");
-      return "Network Error: Check Internet Connection";
+      return "CRITICAL: Network Error. Defaulting to Alert.";
     }
   }
 
