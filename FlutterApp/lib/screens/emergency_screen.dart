@@ -304,7 +304,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
       String hospitalName = hospital['name'];
 
       // ⚠️ HACKATHON DEMO NUMBER
-      String demoSafeNumber = "+919258346766";
+      String demoSafeNumber = "+911234567890";
 
       // FIXED: Use the actual coordinates passed to this function
       String mapsLink =
